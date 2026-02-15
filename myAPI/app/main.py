@@ -72,3 +72,46 @@ async def crea_usuario(usuario:dict):
         "status":"200",
         "usuario":usuario
     }    
+
+#Post de fastapi
+@app.post("/v1/usuarios", tags=['CRUD HTTP']) 
+async def crea_usuario(usuario: dict):
+    for usr in usuarios:
+        if usr["id"] == usuario.get["id"]:
+            raise HTTPException(status_code=400, detail="El id ya existe")
+    usuarios.append(usuario)
+    return { "mensaje":"Usuario agregado correctamente", "status": "200", "usuario": usuario}
+
+#Put de fastapi
+@app.put("/v1/usuarios/{id}", tags=['CRUD HTTP'])
+async def actualizar_usuario(usuario_actualizado: dict):
+    for usr in usuarios:
+        if usr["id"] == usuario_actualizado["id"]:
+            usuario_actualizado["id"] = id 
+            usuarios[usr] = usuario_actualizado
+            raise HTTPException(
+                    status_code=400, 
+                    detail="Usuario no encontrado para actualizar"
+                )
+        return {
+                "mensaje": "Usuario actualizado correctamente",
+                "status": "200",
+                "data": usuario_actualizado
+            }
+    
+#delete de fastapi
+@app.delete("/v1/usuarios/{id}", tags=['CRUD HTTP'])
+async def eliminar_usuario(id: str):
+    for usr in usuarios:
+        if usr["id"] == id:
+            usuario_eliminado = usuarios.pop(usr)
+            raise HTTPException(
+                    status_code=400, 
+                    detail="No se encontró el usuario para eliminar"
+                )
+        return {
+                "mensaje": f"El usuario {usuario_eliminado['nombre']} ha sido eliminado",
+                "status": "200",
+                "data": usuario_eliminado
+            }
+            
