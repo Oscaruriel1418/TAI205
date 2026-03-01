@@ -2,6 +2,7 @@
 from fastapi import FastAPI, status, HTTPException
 from typing import Optional
 import asyncio
+from pydantic import BaseModel,Field
 
 #2. Inicialización APP
 app= FastAPI(title='Mi primera API ', 
@@ -16,6 +17,12 @@ usuarios = [
     { "id":"3", "nombre":"Osman", "edad":"22" },
     { "id":"4", "nombre":"Uriel", "edad":"28" },
 ]
+
+#Modelo de validacion pydantic
+class crear_usuarios(BaseModel):
+    id:int = Field(...,gt=0, description="Identificador de usuario")
+    nombre:str =Field(..., min_length=3,max_length=50,examples="Juanita")
+    edad:int =Field(..., ge=1,le=123,description="Edad valida entre 1 y 123")
 
 #3. Endpoints
 @app.get("/",tags=['Inicio'])
@@ -50,6 +57,8 @@ async def consultaUno(id:Optional[int]=None):
     else:
         return {"Aviso":"No se proporciono ID"}
 
+
+#get en fastapi
 @app.get("/v1/usuarios",tags=['CRUD HTTP'])
 async def consultaT():
     return{
@@ -74,44 +83,61 @@ async def crea_usuario(usuario:dict):
     }    
 
 #Post de fastapi
-@app.post("/v1/usuarios", tags=['CRUD HTTP']) 
-async def crea_usuario(usuario: dict):
+@app.post("/v1/usuarios/",tags=['CRUD HTTP'], status_code=status.HTTP_201_CREATED)
+async def crear_usuarios(usuario:crea_usuario):
     for usr in usuarios:
-        if usr["id"] == usuario.get["id"]:
-            raise HTTPException(status_code=400, detail="El id ya existe")
-    usuarios.append(usuario)
-    return { "mensaje":"Usuario agregado correctamente", "status": "200", "usuario": usuario}
-
-#Put de fastapi
-@app.put("/v1/usuarios/{id}", tags=['CRUD HTTP'])
-async def actualizar_usuario(usuario_actualizado: dict):
-    for usr in usuarios:
-        if usr["id"] == usuario_actualizado["id"]:
-            usuario_actualizado["id"] = id 
-            usuarios[usr] = usuario_actualizado
+        if usr["id"] == usuario.id:
             raise HTTPException(
-                    status_code=400, 
-                    detail="Usuario no encontrado para actualizar"
-                )
-        return {
+                status_code=400,
+                detail="El id ya existe"
+            ) 
+    usuarios.append(usuario)
+    return{
+        "mesaje":"Usuario Agregado",
+        "Usuario":usuario
+    }
+
+# PUT de FastAPI
+@app.put("/v1/usuarios/{id}", tags=['CRUD HTTP'])
+async def actualizar_usuario(id: str, usuario_actualizado: dict):
+    # Usamos enumerate para recorrer la lista y obtener tanto el índice (i) como los datos (usr)
+    for i, usr in enumerate(usuarios):
+        if usr["id"] == id:
+            # Aseguramos que el ID del diccionario sea el mismo que el de la URL
+            usuario_actualizado["id"] = id 
+            
+            # Actualizamos el usuario usando el índice 'i'
+            usuarios[i] = usuario_actualizado
+            
+            # Retornamos el éxito inmediatamente después de actualizar
+            return {
                 "mensaje": "Usuario actualizado correctamente",
                 "status": "200",
                 "data": usuario_actualizado
             }
+            
+    # Si el ciclo 'for' termina y nunca entró al 'if', significa que no existe. Lanzamos error:
+    raise HTTPException(
+        status_code=404, 
+        detail="Usuario no encontrado para actualizar"
+    )
     
-#delete de fastapi
+# DELETE de FastAPI
 @app.delete("/v1/usuarios/{id}", tags=['CRUD HTTP'])
 async def eliminar_usuario(id: str):
-    for usr in usuarios:
+    for i, usr in enumerate(usuarios):
         if usr["id"] == id:
-            usuario_eliminado = usuarios.pop(usr)
-            raise HTTPException(
-                    status_code=400, 
-                    detail="No se encontró el usuario para eliminar"
-                )
-        return {
-                "mensaje": f"El usuario {usuario_eliminado['nombre']} ha sido eliminado",
+            # Usamos pop() pasándole el número de índice 'i' que queremos borrar
+            usuario_eliminado = usuarios.pop(i)
+            
+            return {
+                "mensaje": f"El usuario {usuario_eliminado.get('nombre', 'desconocido')} ha sido eliminado",
                 "status": "200",
                 "data": usuario_eliminado
             }
             
+    # Si termina el ciclo y no encontró al usuario, lanza el error
+    raise HTTPException(
+        status_code=404, 
+        detail="No se encontró el usuario para eliminar"
+    )
