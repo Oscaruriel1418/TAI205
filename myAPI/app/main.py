@@ -1,8 +1,13 @@
 #1. Importaciones
-from fastapi import FastAPI, status, HTTPException
+from fastapi import FastAPI, status, HTTPException, Depends
 from typing import Optional
 import asyncio
 from pydantic import BaseModel,Field
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
+
+
+
 
 #2. Inicialización APP
 app= FastAPI(title='Mi primera API ', 
@@ -12,11 +17,24 @@ app= FastAPI(title='Mi primera API ',
 
 #BD fictisia por el momento 
 usuarios = [
-    { "id":"1", "nombre":"Oscar", "edad":"25" },
-    { "id":"2", "nombre":"Benja", "edad":"30" },
-    { "id":"3", "nombre":"Osman", "edad":"22" },
-    { "id":"4", "nombre":"Uriel", "edad":"28" },
+    { "id":1, "nombre":"Oscar", "edad":"25" },
+    { "id":2, "nombre":"Benja", "edad":"30" },
+    { "id":3, "nombre":"Osman", "edad":"22" },
+    { "id":4, "nombre":"Uriel", "edad":"28" },
 ]
+
+#Seguridad HTTP Basic
+seguridad=HTTPBasic()
+
+def verificar_peticion(credenciales:HTTPBasicCredentials=Depends(seguridad)):
+    userAuth=secrets.compare_digest(credenciales.username, "oscaruriel")
+    passAuth=secrets.compare_digest(credenciales.password, "123456")
+
+    if not(userAuth and passAuth):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Credenciales no autorizadas")
+    return credenciales.username
+
+
 
 #Modelo de validacion pydantic
 class crear_usuarios(BaseModel):
@@ -123,19 +141,14 @@ async def actualizar_usuario(id: str, usuario_actualizado: dict):
     )
     
 # DELETE de FastAPI
-@app.delete("/v1/usuarios/{id}", tags=['CRUD HTTP'])
-async def eliminar_usuario(id: str):
-    for i, usr in enumerate(usuarios):
+@app.delete("/v1/usuarios/{id}", tags=['CRUD HTTP'],status_code=status.HTTP_200_OK)
+async def eliminar_usuario(id: int,userAuth:str=Depends(verificar_peticion)):
+    for index, usr in enumerate(usuarios):
         if usr["id"] == id:
-            # Usamos pop() pasándole el número de índice 'i' que queremos borrar
-            usuario_eliminado = usuarios.pop(i)
-            
-            return {
-                "mensaje": f"El usuario {usuario_eliminado.get('nombre', 'desconocido')} ha sido eliminado",
-                "status": "200",
-                "data": usuario_eliminado
-            }
-            
+            usuarios.pop(index)
+            return{
+                "message":f"Usuario eliminado por {userAuth}"
+            }            
     # Si termina el ciclo y no encontró al usuario, lanza el error
     raise HTTPException(
         status_code=404, 
