@@ -11,10 +11,18 @@ app= FastAPI(title='Examen 2do ',
              version='1.0.0'
             )
 
-reservas = [{"id":1, "Nombre de usuario":"Oscar Uriel", "Tipo de habitacion":"Doble", "Fecha de reserva":"14-05-2024"},
-            {"id":2, "Nombre de usuario":"Benjamin", "Tipo de habitacion":"Suite","Fecha de reserva":"15-05-2024"},
-            {"id":3, "Nombre de usuario":"Gerardo abraham", "Tipo de habitacion":"doble","Fecha de reserva":"18-05-2024"},
-            {"id":4, "Nombre de usuario":"Francisco Linares", "Tipo de habitacion":"sencilla","Fecha de reserva":"25-05-2024"}]
+class crear_reserva(BaseModel):
+    id:int = Field(...,gt=0, description="Identificador de usuario")
+    Huesped:str =Field(..., min_length=5,examples="Juana")
+    Habitacion:str =Field(..., description="Suite")
+    Fecha:str =Field(..., description="15-05-2024")
+
+
+
+reservas = [{"id":1, "Huesped":"Oscar Uriel", "habitacion":"Doble", "Fecha":"14-05-2024"},
+            {"id":2, "Huesped":"Benjamin", "habitacion":"Suite","Fecha":"15-05-2024"},
+            {"id":3, "Huesped":"Gerardo abraham", "habitacion":"doble","Fecha":"18-05-2024"},
+            {"id":4, "Huesped":"Francisco Linares", "habitacion":"sencilla","Fecha":"25-05-2024"}]
 
 seguridad=HTTPBasic()
 
@@ -66,16 +74,16 @@ async def consultaUno(id:Optional[int]=None):
         return {"Aviso":"No se proporciono ID"}
     
 
-@app.delete("/v1/Resrva/{id}", tags=['Cancelar reserva'],status_code=status.HTTP_200_OK)
+@app.delete("/v1/reserva/{id}", tags=['Cancelar reserva'],status_code=status.HTTP_200_OK)
 async def cancelar_reserva(id: int,userAuth:str=Depends(verificar_peticion)):
     for index, rsv in enumerate(reservas):
         if rsv["id"] == id:
             reservas.pop(index)
             return{
-                "message":f"Usuario eliminado por {userAuth}"
+                "message":f"Reserva eliminada por {userAuth}"
             }            
     # Si termina el ciclo y no encontró al usuario, lanza el error
     raise HTTPException(
         status_code=404, 
-        detail="No se encontró el usuario para eliminar"
+        detail="No se encontró la reserva para eliminar"
     )
