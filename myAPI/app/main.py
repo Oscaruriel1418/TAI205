@@ -75,52 +75,40 @@ async def consultaUno(id:Optional[int]=None):
     else:
         return {"Aviso":"No se proporciono ID"}
 
-
-#get en fastapi
-@app.get("/v1/usuarios",tags=['CRUD HTTP'])
-async def consultaT():
-    return{
-        "Status":"200",
+# GET de FastAPI 
+@app.get("/v1/usuarios", tags=['CRUD HTTP'])
+async def consulta_usuarios():
+    return {
+        "Status": "200",
         "Total": len(usuarios),
         "data": usuarios
     }
 
-@app.get("/v1/usuarios",tags=['CRUD HTTP'])
-async def crea_usuario(usuario:dict):
+# POST de FastAPI 
+@app.post("/v1/usuarios", tags=['CRUD HTTP'], status_code=status.HTTP_201_CREATED)
+async def crear_usuario(usuario: dict):
+    # Validamos si el id ya existe iterando la lista
     for usr in usuarios:
-        if usr["id"] == usuario.get("id"):
-            raise HTTPException(
-                status_code=400,
-                detail="El id ya existe"
-            )
-    usuarios.append(usuario)
-    return{
-        "mensaje":"Usuario agregado correctamente",
-        "status":"200",
-        "usuario":usuario
-    }    
-
-#Post de fastapi
-@app.post("/v1/usuarios/",tags=['CRUD HTTP'], status_code=status.HTTP_201_CREATED)
-async def crear_usuarios(usuario:crea_usuario):
-    for usr in usuarios:
-        if usr["id"] == usuario.id:
+        if usr.get("id") == usuario.get("id"):
             raise HTTPException(
                 status_code=400,
                 detail="El id ya existe"
             ) 
+            
     usuarios.append(usuario)
-    return{
-        "mesaje":"Usuario Agregado",
-        "Usuario":usuario
+    
+    return {
+        "mensaje": "Usuario agregado correctamente",
+        "status": "200",
+        "Usuario": usuario
     }
 
-# PUT de FastAPI
+# PUT de FastAPI 
 @app.put("/v1/usuarios/{id}", tags=['CRUD HTTP'])
-async def actualizar_usuario(id: str, usuario_actualizado: dict):
+async def actualizar_usuario(id: int, usuario_actualizado: dict):
     # Usamos enumerate para recorrer la lista y obtener tanto el índice (i) como los datos (usr)
     for i, usr in enumerate(usuarios):
-        if usr["id"] == id:
+        if usr.get("id") == id:
             # Aseguramos que el ID del diccionario sea el mismo que el de la URL
             usuario_actualizado["id"] = id 
             
@@ -134,12 +122,11 @@ async def actualizar_usuario(id: str, usuario_actualizado: dict):
                 "data": usuario_actualizado
             }
             
-    # Si el ciclo 'for' termina y nunca entró al 'if', significa que no existe. Lanzamos error:
+    # Si el ciclo 'for' termina y nunca entró al 'if', significa que no existe
     raise HTTPException(
         status_code=404, 
         detail="Usuario no encontrado para actualizar"
     )
-    
 # DELETE de FastAPI
 @app.delete("/v1/usuarios/{id}", tags=['CRUD HTTP'],status_code=status.HTTP_200_OK)
 async def eliminar_usuario(id: int,userAuth:str=Depends(verificar_peticion)):
