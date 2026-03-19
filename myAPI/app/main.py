@@ -50,6 +50,8 @@ async def consultaUno(id:Optional[int]=None):
     else:
         return {"Aviso":"No se proporciono ID"}
 
+
+#get en fastapi
 @app.get("/v1/usuarios",tags=['CRUD HTTP'])
 async def consultaT():
     return{

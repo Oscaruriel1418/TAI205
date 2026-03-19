@@ -1,7 +1,7 @@
 services:
   api:
     build: .
-    container_name: serve_FastAPI
+    container_name: examen_2do
     ports:
       - "5010:5010"
     volumes: 
