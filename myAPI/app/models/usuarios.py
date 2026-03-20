@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 from pydantic import BaseModel,Field
 
 #Modelo de validacion pydantic
