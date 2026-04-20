@@ -14,7 +14,7 @@ app = FastAPI(
 security = HTTPBasic()
 
 # ── Modelo de datos ────────────────────────────────────────────────────────────
-
+    
 class ReservaSchema(BaseModel):
     id: int = Field(..., gt=0, description="Identificador de la reserva")
     huesped: str = Field(..., min_length=5, examples=["Juana Pérez"])
