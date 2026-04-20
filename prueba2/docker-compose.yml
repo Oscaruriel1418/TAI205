@@ -3,6 +3,6 @@ services:
     build: .
     container_name: examen2
     ports:
-      - "5020:5020"
+      - "5010:5010"
     volumes: 
       - ./app:/app/app
