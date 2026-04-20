@@ -1,89 +1,165 @@
 from fastapi import FastAPI, status, HTTPException, Depends
-from typing import Optional
-import asyncio
-from pydantic import BaseModel,Field
+from typing import Optional, Literal
+from pydantic import BaseModel, Field, model_validator
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 import datetime
 
-app= FastAPI(title='Examen 2do ', 
-             description='Examen segundo parcial', 
-             version='1.0.0'
-            )
+app = FastAPI(
+    title='Examen 2do Parcial',
+    description='API de Sistema de Reservas Hospedaje',
+    version='1.0.0'
+)
 
-class crear_reserva(BaseModel):
-    id:int = Field(...,gt=0, description="Identificador de usuario")
-    Huesped:str =Field(..., min_length=5,examples="Juana")
-    Habitacion:str =Field(..., description="Suite")
-    Fecha:str =Field(..., description="15-05-2024")
+security = HTTPBasic()
+
+# ── Modelo de datos ────────────────────────────────────────────────────────────
+
+class ReservaSchema(BaseModel):
+    id: int = Field(..., gt=0, description="Identificador de la reserva")
+    huesped: str = Field(..., min_length=5, examples=["Juana Pérez"])
+    habitacion: Literal["sencilla", "doble", "suite"] = Field(
+        ..., description="Tipo de habitación permitido"
+    )
+    fecha_entrada: datetime.date = Field(..., description="Fecha de entrada (YYYY-MM-DD)")
+    fecha_salida: datetime.date = Field(..., description="Fecha de salida (YYYY-MM-DD)")
+
+    @model_validator(mode="after")
+    def validar_fechas(self):
+        hoy = datetime.date.today()
+
+        if self.fecha_entrada < hoy:
+            raise ValueError("La fecha de entrada no puede ser menor a la fecha actual")
+
+        if self.fecha_salida <= self.fecha_entrada:
+            raise ValueError("La fecha de salida debe ser mayor que la fecha de entrada")
+
+        duracion = (self.fecha_salida - self.fecha_entrada).days
+        if duracion > 7:
+            raise ValueError(f"La estancia no puede ser mayor a 7 días (solicitaste {duracion} días)")
+
+        return self
 
 
+# ── Datos en memoria ───────────────────────────────────────────────────────────
 
-reservas = [{"id":1, "Huesped":"Oscar Uriel", "habitacion":"Doble", "Fecha":"14-05-2024"},
-            {"id":2, "Huesped":"Benjamin", "habitacion":"Suite","Fecha":"15-05-2024"},
-            {"id":3, "Huesped":"Gerardo abraham", "habitacion":"doble","Fecha":"18-05-2024"},
-            {"id":4, "Huesped":"Francisco Linares", "habitacion":"sencilla","Fecha":"25-05-2024"}]
+reservas = [
+    {
+        "id": 1,
+        "huesped": "Oscar Uriel",
+        "habitacion": "doble",
+        "fecha_entrada": "2025-06-01",
+        "fecha_salida": "2025-06-03",
+        "confirmada": False
+    },
+    {
+        "id": 2,
+        "huesped": "Benjamin Torres",
+        "habitacion": "suite",
+        "fecha_entrada": "2025-06-05",
+        "fecha_salida": "2025-06-07",
+        "confirmada": False
+    },
+]
 
-seguridad=HTTPBasic()
 
-def verificar_peticion(credenciales:HTTPBasicCredentials=Depends(seguridad)):
-    userAuth=secrets.compare_digest(credenciales.username, "hotel")
-    passAuth=secrets.compare_digest(credenciales.password, "r2026")
+# ── Seguridad ──────────────────────────────────────────────────────────────────
 
-    if not(userAuth and passAuth):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Credenciales no autorizadas")
+def verificar_peticion(credenciales: HTTPBasicCredentials = Depends(security)):
+    user_ok = secrets.compare_digest(credenciales.username, "hotel")
+    pass_ok = secrets.compare_digest(credenciales.password, "r2026")
+
+    if not (user_ok and pass_ok):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales no autorizadas",
+            headers={"WWW-Authenticate": "Basic"},
+        )
     return credenciales.username
 
 
-@app.post("/v1/reserva", tags=['Crear Reserva'], status_code=status.HTTP_201_CREATED)
-async def crear_reserva(reserva: dict, userAuth:str=Depends(verificar_peticion)):
-    # Validamos si el id ya existe iterando la lista
+# ── Endpoints ──────────────────────────────────────────────────────────────────
+
+@app.post("/v1/reserva", tags=["Reservas"], status_code=status.HTTP_201_CREATED)
+async def crear_reserva(
+    reserva: ReservaSchema,                        # ahora usa el modelo Pydantic
+    user: str = Depends(verificar_peticion)
+):
     for rsv in reservas:
-         if rsv.get("id") == reserva.get("id"):
+        if rsv["id"] == reserva.id:
             raise HTTPException(
-                status_code=400,
-                detail="El id ya existe"
-            ) 
-    reservas.append(reserva)
-     
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ya existe una reserva con el id {reserva.id}"
+            )
+
+    nueva = reserva.model_dump()
+    nueva["confirmada"] = False                    # toda reserva inicia sin confirmar
+    reservas.append(nueva)
+
     return {
-        "mensaje": "Reserva agregada correctamente",
-        "status": "200",
-        "Usuario": reserva
+        "mensaje": "Reserva creada correctamente",
+        "data": nueva
     }
 
 
-@app.get("/v1/reservas",tags=['Listar reservas'])
-async def consultaT():
-    return{
-        "Status":"200",
-        "Total": len(reservas),
+@app.get("/v1/reservas", tags=["Reservas"])
+async def listar_reservas():
+    return {
+        "status": 200,
+        "total": len(reservas),
         "data": reservas
     }
-            
-@app.get("/v1/reservas/{id}",tags=['Listar por id'])
-async def consultaUno(id:Optional[int]=None):
-    await asyncio.sleep(2)
-            #Llave      #Valor
-    if id is not None:
-        for reserva in reservas:
-                if reserva["id"] == id:
-                        return {"reserva encontrada":id, "Datos":reserva}
-        return {"Resultado":"Reserva encontrada","Estatus":"200",}
-    else:
-        return {"Aviso":"No se proporciono ID"}
-    
 
-@app.delete("/v1/reserva/{id}", tags=['Cancelar reserva'],status_code=status.HTTP_200_OK)
-async def cancelar_reserva(id: int,userAuth:str=Depends(verificar_peticion)):
+
+@app.get("/v1/reservas/{id}", tags=["Reservas"])
+async def consultar_reserva(id: int):
+    for reserva in reservas:
+        if reserva["id"] == id:
+            return {
+                "status": 200,
+                "data": reserva
+            }
+    # si no encontró nada lanza el 404 correcto
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"No se encontró ninguna reserva con el id {id}"
+    )
+
+
+@app.patch("/v1/reserva/{id}/confirmar", tags=["Reservas"], status_code=status.HTTP_200_OK)
+async def confirmar_reserva(id: int):
+    for reserva in reservas:
+        if reserva["id"] == id:
+            if reserva["confirmada"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La reserva ya estaba confirmada"
+                )
+            reserva["confirmada"] = True
+            return {
+                "mensaje": f"Reserva {id} confirmada exitosamente",
+                "data": reserva
+            }
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"No se encontró ninguna reserva con el id {id}"
+    )
+
+
+@app.delete("/v1/reserva/{id}", tags=["Reservas"], status_code=status.HTTP_200_OK)
+async def cancelar_reserva(
+    id: int,
+    user: str = Depends(verificar_peticion)
+):
     for index, rsv in enumerate(reservas):
         if rsv["id"] == id:
             reservas.pop(index)
-            return{
-                "message":f"Reserva eliminada por {userAuth}"
-            }            
-    # Si termina el ciclo y no encontró al usuario, lanza el error
+            return {
+                "mensaje": f"Reserva {id} cancelada por {user}"
+            }
+
     raise HTTPException(
-        status_code=404, 
-        detail="No se encontró la reserva para eliminar"
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"No se encontró la reserva con id {id} para cancelar"
     )
